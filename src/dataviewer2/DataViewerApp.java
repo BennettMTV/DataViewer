@@ -20,8 +20,6 @@ public class DataViewerApp implements DrawListener {
 	// Private constants (alphabetical)
 	private final static double 	DATA_WINDOW_BORDER = 50.0;
 	private final static String 	DEFAULT_COUNTRY = "United States";
-	private final static boolean	DO_DEBUG = true;
-	private final static boolean	DO_TRACE = false;
 	private final static double 	EXTREMA_PCT = 0.1;
 	private final static int 		FILE_COUNTRY_IDX = 4;
 	private final static int 		FILE_DATE_IDX = 0;
@@ -98,50 +96,6 @@ public class DataViewerApp implements DrawListener {
         // draw the screen for the first time -- this will be the main menu
 	    update();
     }
- 
-    /**
-     * For debugging.  Use 'trace' for older debugging messages that you don't want to see.
-     * 
-     * Output is shown based on the M_DO_TRACE constant.
-     */
-    private void trace(String format, Object...args) {
-    	if(DO_TRACE) {
-    		System.out.print("TRACE: ");
-    		System.out.println(String.format(format, args));
-    	}
-    }
-    
-    /**
-     * For informational output.
-     * @param format
-     * @param args
-     */
-    private void info(String format, Object... args) {
-    	System.out.print("INFO: ");
-    	System.out.println(String.format(format, args));
-    }
-    
-    /**
-     * For error output.
-     * @param format
-     * @param args
-     */
-    private void error(String format, Object... args) {
-    	System.out.print("ERROR: ");
-    	System.out.println(String.format(format, args));
-    }
-    
-    /**
-     * For debugging output.  Output is controlled by the DO_DEBUG constant.
-     * @param format
-     * @param args
-     */
-    private void debug(String format, Object... args) {
-    	if(DO_DEBUG) {
-    		System.out.print("DEBUG: ");
-    		System.out.println(String.format(format, args));
-    	}
-    }
     
     /**
      * Utility function to pull a year integer out of a date string.  Supports M/D/Y and Y-M-D formats only.
@@ -169,7 +123,7 @@ public class DataViewerApp implements DrawListener {
     		throw new RuntimeException(String.format("Unexpected date delimiter: '%s'", dateString));
     	}
     	if(ret == null) {
-    		trace("Unable to parse year from date: '%s'", dateString);
+    		Logger.trace("Unable to parse year from date: '%s'", dateString);
     	}
     	return ret;
     }
@@ -184,15 +138,15 @@ public class DataViewerApp implements DrawListener {
         }
         m_dataCountries.add(rawValues.get(FILE_COUNTRY_IDX));
         if(rawValues.size() != FILE_NUM_COLUMNS) {
-        	trace("malformed line '%s'...skipping", line);
+        	Logger.trace("malformed line '%s'...skipping", line);
         	return null;
         }
         else if(!rawValues.get(FILE_COUNTRY_IDX).equals(m_selectedCountry)) {
-        	trace("skipping non-USA record: %s", rawValues);
+        	Logger.trace("skipping non-USA record: %s", rawValues);
         	return null;
         }
         else {
-        	trace("processing raw data: %s", rawValues.toString());
+        	Logger.trace("processing raw data: %s", rawValues.toString());
         }
         try {
         	// Parse these into more useful objects than String
@@ -222,7 +176,7 @@ public class DataViewerApp implements DrawListener {
         	return values;
         }
         catch(NumberFormatException e) {
-        	trace("unable to parse data line, skipping...'%s'", line);
+        	Logger.trace("unable to parse data line, skipping...'%s'", line);
         	return null;
         }
     }
@@ -247,7 +201,7 @@ public class DataViewerApp implements DrawListener {
     		throw new RuntimeException(String.format("Unexpected date delimiter: '%s'", dateString));
     	}
     	if(ret == null || ret.intValue() < 1 || ret.intValue() > 12) {
-    		trace("Unable to parse month from date: '%s'", dateString);
+    		Logger.trace("Unable to parse month from date: '%s'", dateString);
     		return null;
     	}
     	return ret;
@@ -273,14 +227,14 @@ public class DataViewerApp implements DrawListener {
             m_selectedStartYear = m_dataYears.first();
             m_selectedEndYear = m_dataYears.last();
 
-            info("loaded %d data records", m_dataRaw.size());
-            info("loaded data for %d states", m_dataStates.size());
-            info("loaded data for %d years [%d, %d]", m_dataYears.size(), m_selectedStartYear, m_selectedEndYear);
+            Logger.info("loaded %d data records", m_dataRaw.size());
+            Logger.info("loaded data for %d states", m_dataStates.size());
+            Logger.info("loaded data for %d years [%d, %d]", m_dataYears.size(), m_selectedStartYear, m_selectedEndYear);
     	}
     }
 	
 	private void updatePlotData() {
-		//debug("raw data: %s", m_rawData.toString());
+		//Logger.debug("raw data: %s", m_rawData.toString());
 		// plot data is a map where the key is the Month, and the value is a sorted map where the key
 		// is the year. 
 		m_plotData = new TreeMap<Integer,SortedMap<Integer,Double>>();
@@ -315,7 +269,7 @@ public class DataViewerApp implements DrawListener {
 				m_plotData.get(month).put(year, value);
 			}
 		}
-		//debug("plot data: %s", m_plotData.toString());
+		//Logger.debug("plot data: %s", m_plotData.toString());
 	}
     
     @Override
@@ -384,15 +338,15 @@ public class DataViewerApp implements DrawListener {
     	double nCols = 12; // one for each month
     	double nRows = m_selectedEndYear - m_selectedStartYear + 1; // for the years
     	
-    	debug("nCols = %f, nRows = %f", nCols, nRows);
+    	Logger.debug("nCols = %f, nRows = %f", nCols, nRows);
  		
         double cellWidth = WINDOW_WIDTH / nCols;
         double cellHeight = WINDOW_HEIGHT / nRows;
         
-        debug("cellWidth = %f, cellHeight = %f", cellWidth, cellHeight);
+        Logger.debug("cellWidth = %f, cellHeight = %f", cellWidth, cellHeight);
         
         boolean extremaVisualization = m_selectedVisualization.equals(VISUALIZATION_MODES[VISUALIZATION_EXTREMA_IDX]);
-        info("visualization: %s (extrema == %b)", m_selectedVisualization, extremaVisualization);
+        Logger.info("visualization: %s (extrema == %b)", m_selectedVisualization, extremaVisualization);
         
         for(int month = 1; month <= 12; month++) {
             double fullRange = m_plotMonthlyMaxValue.get(month) - m_plotMonthlyMinValue.get(month);
@@ -439,7 +393,7 @@ public class DataViewerApp implements DrawListener {
         			
         			// draw the rectangle for this data point
         			m_window.setPenColor(cellColor);
-        			trace("month = %d, year = %d -> (%f, %f) with %s", month, year, x, y, cellColor.toString());
+        			Logger.trace("month = %d, year = %d -> (%f, %f) with %s", month, year, x, y, cellColor.toString());
         			m_window.filledRectangle(x, y, cellWidth/2.0, cellHeight/2.0);
         		}
         	}
@@ -480,7 +434,7 @@ public class DataViewerApp implements DrawListener {
     		return null;
     	}
     	double pct = (value - TEMPERATURE_MIN_C) / TEMPERATURE_RANGE;
-    	trace("converted %f raw value to %f %%", value, pct);
+    	Logger.trace("converted %f raw value to %f %%", value, pct);
     
     	if (pct > 1.0) {
             pct = 1.0;
@@ -500,7 +454,7 @@ public class DataViewerApp implements DrawListener {
         	r = g = b = (int)(255.0 * pct);
         }
         
-        trace("converting %f to [%d, %d, %d]", value, r, g, b);
+        Logger.trace("converting %f to [%d, %d, %d]", value, r, g, b);
 
 		return new Color(r, g, b);
 	}
@@ -512,7 +466,7 @@ public class DataViewerApp implements DrawListener {
 	@Override public void keyPressed(int key) {
 		boolean needsUpdate = false;
 		boolean needsUpdatePlotData = false;
-		trace("key pressed '%c'", (char)key);
+		Logger.trace("key pressed '%c'", (char)key);
 		// regardless of draw mode, 'Q' or 'q' means quit:
 		if(key == 'Q') {
 			System.out.println("Bye");
@@ -536,7 +490,7 @@ public class DataViewerApp implements DrawListener {
 			             m_dataCountries.toArray(), m_selectedCountry);
 				
 				if(selectedValue != null) {
-					info("User selected: '%s'", selectedValue);
+					Logger.info("User selected: '%s'", selectedValue);
 					if(!selectedValue.equals(m_selectedCountry)) {
 						// change in data
 						m_selectedCountry = (String)selectedValue;
@@ -562,7 +516,7 @@ public class DataViewerApp implements DrawListener {
 			             m_dataStates.toArray(), m_selectedState);
 				
 				if(selectedValue != null) {
-					info("User selected: '%s'", selectedValue);
+					Logger.info("User selected: '%s'", selectedValue);
 					if(!selectedValue.equals(m_selectedState)) {
 						// change in data
 						m_selectedState = (String)selectedValue;
@@ -579,10 +533,10 @@ public class DataViewerApp implements DrawListener {
 			             m_dataYears.toArray(), m_selectedStartYear);
 				
 				if(selectedValue != null) {
-					info("User seleted: '%s'", selectedValue);
+					Logger.info("User seleted: '%s'", selectedValue);
 					Integer year = (Integer)selectedValue;
 					if(year.compareTo(m_selectedEndYear) > 0) {
-						error("new start year (%d) must not be after end year (%d)", year, m_selectedEndYear);
+						Logger.error("new start year (%d) must not be after end year (%d)", year, m_selectedEndYear);
 					}
 					else {
 						if(!m_selectedStartYear.equals(year)) {
@@ -601,10 +555,10 @@ public class DataViewerApp implements DrawListener {
 			             m_dataYears.toArray(), m_selectedEndYear);
 				
 				if(selectedValue != null) {
-					info("User seleted: '%s'", selectedValue);
+					Logger.info("User seleted: '%s'", selectedValue);
 					Integer year = (Integer)selectedValue;
 					if(year.compareTo(m_selectedStartYear) < 0) {
-						error("new end year (%d) must be not be before start year (%d)", year, m_selectedStartYear);
+						Logger.error("new end year (%d) must be not be before start year (%d)", year, m_selectedStartYear);
 					}
 					else {
 						if(!m_selectedEndYear.equals(year)) {
@@ -623,7 +577,7 @@ public class DataViewerApp implements DrawListener {
 						VISUALIZATION_MODES, m_selectedVisualization);
 
 				if(selectedValue != null) {
-					info("User seleted: '%s'", selectedValue);
+					Logger.info("User seleted: '%s'", selectedValue);
 					String visualization = (String)selectedValue;
 					if(!m_selectedVisualization.equals(visualization)) {
 						m_selectedVisualization = visualization;
