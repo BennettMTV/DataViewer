@@ -9,8 +9,11 @@ import javax.swing.JOptionPane;
 import edu.du.dudraw.Draw;
 import edu.du.dudraw.DrawListener;
 
-public class DataViewerUI extends DataViewer implements DrawListener{
+public class DataViewerUI extends DataViewer implements DrawListener {
 	private DataLoader dl;
+	private Draw m_window;
+
+	private static int m_guiMode = GUI_MODE_MAIN_MENU; // Menu by default
 	
 	/**
 	 * Constructor sets up the window and loads the specified data file.
@@ -231,7 +234,7 @@ public class DataViewerUI extends DataViewer implements DrawListener{
 		Logger.trace("key pressed '%c'", (char)key);
 		// regardless of draw mode, 'Q' or 'q' means quit:
 		if(key == 'Q') {
-			System.out.println("Bye");
+			Logger.info("Exiting...");
 			System.exit(0);
 		}
 		else if(m_guiMode == GUI_MODE_MAIN_MENU) {
