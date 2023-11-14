@@ -3,24 +3,60 @@ package dataviewer3final;
 import java.awt.Color;
 import java.io.IOException;
 import java.util.SortedMap;
+import java.util.TreeMap;
 
 import javax.swing.JOptionPane;
 
 import edu.du.dudraw.Draw;
 import edu.du.dudraw.DrawListener;
 
-public class DataViewerUI extends DataViewer implements DrawListener {
-	private DataLoader dl;
+public class DataViewerUI implements DrawListener {
+	private DataLoader loader;
 	private Draw m_window;
 
-	private static int m_guiMode = GUI_MODE_MAIN_MENU; // Menu by default
+	SortedMap<String, SortedMap<String, SortedMap<Integer, SortedMap<Integer, Record>>>> data;
+
+    // GUI Settings
+    protected final static double 	DATA_WINDOW_BORDER = 50.0;
+	protected final static String 	DEFAULT_COUNTRY = "United States";
+	protected final static boolean	DO_DEBUG = true;
+	protected final static boolean	DO_TRACE = false;
+	protected final static double 	EXTREMA_PCT = 0.1;
+	protected final static int 		GUI_MODE_MAIN_MENU = 0;
+	protected final static int 		GUI_MODE_DATA = 1;
+	protected final static double		MENU_STARTING_X = 40.0;
+	protected final static double 	MENU_STARTING_Y = 90.0;
+	protected final static double 	MENU_ITEM_SPACING = 5.0;
+	protected final static String[] 	MONTH_NAMES = { "", // 1-based
+			"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
+	protected final static double		TEMPERATURE_MAX_C = 30.0;
+	protected final static double		TEMPERATURE_MIN_C = -10.0;
+	protected final static double		TEMPERATURE_RANGE = TEMPERATURE_MAX_C - TEMPERATURE_MIN_C;
+	protected final static String[] 	VISUALIZATION_MODES = { "Raw", "Extrema (within 10% of min/max)" };
+	protected final static int 		VISUALIZATION_RAW_IDX = 0;
+	protected final static int		VISUALIZATION_EXTREMA_IDX = 1;
+
+    // user selections
+	protected static String selectedCountry = DEFAULT_COUNTRY;
+	protected static String selectedState;
+	protected static Integer selectedStartYear;
+	protected static Integer selectedEndYear;
+	protected static String selectedVisualization = VISUALIZATION_MODES[0];
+	private static int guiMode = GUI_MODE_MAIN_MENU; // Menu by default
+    protected static int 		WINDOW_HEIGHT = 720;
+	protected static String 	WINDOW_TITLE = "DataViewer Application";
+	protected static int 		WINDOW_WIDTH = 1320; // should be a multiple of 12
+
+	// plot-related data
+	protected static TreeMap<Integer, SortedMap<Integer,Double>> m_plotData = null;
+	protected static TreeMap<Integer,Double> m_plotMonthlyMaxValue = null;
+	protected static TreeMap<Integer,Double> m_plotMonthlyMinValue = null;
 	
 	/**
 	 * Constructor sets up the window and loads the specified data file.
 	 */
 	public DataViewerUI(String dataFile) throws IOException {
-		// save the data file name for later use if user switches country
-		dl= new DataLoaderCSV(dataFile);
+		loader = new DataLoaderCSV(dataFile);
 
 		// Setup the DuDraw board
 		m_window = new Draw(WINDOW_TITLE);
@@ -31,7 +67,14 @@ public class DataViewerUI extends DataViewer implements DrawListener {
 		m_window.addListener(this);
 
 		// Load data
-		dl.loadData();
+		data = loader.loadData();
+
+		// Set initial selections to first in data
+		selectedState = data.get(selectedCountry).firstKey();
+		selectedStartYear = data.get(selectedCountry).get(selectedState).firstKey();
+		selectedEndYear = data.get(selectedCountry).get(selectedState).lastKey();
+
+		updatePlotData(selectedCountry, selectedState, selectedStartYear, selectedEndYear);
 
 		// draw the screen for the first time -- this will be the main menu
 		update();
@@ -39,14 +82,14 @@ public class DataViewerUI extends DataViewer implements DrawListener {
 
 	@Override
 	public void update() {    	
-		if(m_guiMode == GUI_MODE_MAIN_MENU) {
+		if(guiMode == GUI_MODE_MAIN_MENU) {
 			drawMainMenu();
 		}
-		else if(m_guiMode == GUI_MODE_DATA) {
+		else if(guiMode == GUI_MODE_DATA) {
 			drawData();
 		}
 		else {
-			throw new IllegalStateException(String.format("Unexpected drawMode=%d", m_guiMode));
+			throw new IllegalStateException(String.format("Unexpected drawMode=%d", guiMode));
 		}
 		// for double-buffering
 		m_window.show();
@@ -58,11 +101,11 @@ public class DataViewerUI extends DataViewer implements DrawListener {
 		String[] menuItems = {
 				"Type the menu number to select that option:",
 				"",
-				String.format("C     Set country: [%s]", m_selectedCountry),
-				String.format("T     Set state: [%s]", m_selectedState),
-				String.format("S     Set start year [%d]", m_selectedStartYear),
-				String.format("E     Set end year [%d]", m_selectedEndYear),
-				String.format("V     Set visualization [%s]", m_selectedVisualization),
+				String.format("C     Set country: [%s]", selectedCountry),
+				String.format("T     Set state: [%s]", selectedState),
+				String.format("S     Set start year [%d]", selectedStartYear),
+				String.format("E     Set end year [%d]", selectedEndYear),
+				String.format("V     Set visualization [%s]", selectedVisualization),
 				String.format("P     Plot data"),
 				String.format("Q     Quit"),
 		};
@@ -101,7 +144,7 @@ public class DataViewerUI extends DataViewer implements DrawListener {
 		m_window.setPenColor(Color.BLACK);
 
 		double nCols = 12; // one for each month
-		double nRows = m_selectedEndYear - m_selectedStartYear + 1; // for the years
+		double nRows = selectedEndYear - selectedStartYear + 1; // for the years
 
 		Logger.debug("nCols = %f, nRows = %f", nCols, nRows);
 
@@ -110,14 +153,13 @@ public class DataViewerUI extends DataViewer implements DrawListener {
 
 		Logger.debug("cellWidth = %f, cellHeight = %f", cellWidth, cellHeight);
 
-		boolean extremaVisualization = m_selectedVisualization.equals(VISUALIZATION_MODES[VISUALIZATION_EXTREMA_IDX]);
-		Logger.info("visualization: %s (extrema == %b)", m_selectedVisualization, extremaVisualization);
+		boolean extremaVisualization = selectedVisualization.equals(VISUALIZATION_MODES[VISUALIZATION_EXTREMA_IDX]);
+		Logger.info("visualization: %s (extrema == %b)", selectedVisualization, extremaVisualization);
 
 		for(int month = 1; month <= 12; month++) {
 			double fullRange = m_plotMonthlyMaxValue.get(month) - m_plotMonthlyMinValue.get(month);
 			double extremaMinBound = m_plotMonthlyMinValue.get(month) + EXTREMA_PCT * fullRange;
 			double extremaMaxBound = m_plotMonthlyMaxValue.get(month) - EXTREMA_PCT * fullRange;
-
 
 			// draw the line separating the months and the month label
 			m_window.setPenColor(Color.BLACK);
@@ -128,14 +170,14 @@ public class DataViewerUI extends DataViewer implements DrawListener {
 			// there should always be a map for the month
 			SortedMap<Integer,Double> monthData = m_plotData.get(month);
 
-			for(int year = m_selectedStartYear; year <= m_selectedEndYear; year++) {
+			for(int year = selectedStartYear; year <= selectedEndYear; year++) {
 
 				// month data structure might not have every year
 				if(monthData.containsKey(year)) {
 					Double value = monthData.get(year);
 
 					double x = (month-1.0)*cellWidth + 0.5 * cellWidth;
-					double y = (year-m_selectedStartYear)*cellHeight + 0.5 * cellHeight;
+					double y = (year-selectedStartYear)*cellHeight + 0.5 * cellHeight;
 
 					Color cellColor = null;
 
@@ -167,11 +209,11 @@ public class DataViewerUI extends DataViewer implements DrawListener {
 		// draw the labels for the y-axis
 		m_window.setPenColor(Color.BLACK);
 
-		double labelYearSpacing = (m_selectedEndYear - m_selectedStartYear) / 5.0;
+		double labelYearSpacing = (selectedEndYear - selectedStartYear) / 5.0;
 		double labelYSpacing = WINDOW_HEIGHT/5.0;
 		// spaced out by 5, but need both the first and last label, so iterate 6
 		for(int i=0; i<6; i++) {
-			int year = (int)Math.round(i * labelYearSpacing + m_selectedStartYear);
+			int year = (int)Math.round(i * labelYearSpacing + selectedStartYear);
 			String text = String.format("%4d", year);
 
 			m_window.textRight(0.0, i*labelYSpacing, text);
@@ -183,7 +225,7 @@ public class DataViewerUI extends DataViewer implements DrawListener {
 
 		// put in the title
 		String title = String.format("%s, %s from %d to %d. Press 'M' for Main Menu.  Press 'Q' to Quit.",
-				m_selectedState, m_selectedCountry, m_selectedStartYear, m_selectedEndYear);
+				selectedState, selectedCountry, selectedStartYear, selectedEndYear);
 		m_window.text(WINDOW_WIDTH/2.0, WINDOW_HEIGHT+DATA_WINDOW_BORDER/2.0, title);
 	}
 	
@@ -224,6 +266,45 @@ public class DataViewerUI extends DataViewer implements DrawListener {
 		return new Color(r, g, b);
 	}
 
+	private void updatePlotData(String country, String state, int startYear, int endYear) {
+		//debug("raw data: %s", m_rawData.toString());
+		// plot data is a map where the key is the Month, and the value is a sorted map where the key
+		// is the year. 
+		m_plotData = new TreeMap<Integer,SortedMap<Integer,Double>>();
+		for(int month = 1; month <= 12; month++) {
+			// any year/months not filled in will be null
+			m_plotData.put(month, new TreeMap<Integer,Double>());
+		}
+		// now run through the raw data and if it is related to the current state and within the current
+		// years, put it in a sorted data structure, so that we 
+		// find min/max year based on data 
+		m_plotMonthlyMaxValue = new TreeMap<Integer,Double>();
+		m_plotMonthlyMinValue = new TreeMap<Integer,Double>();
+
+		SortedMap<Integer, SortedMap<Integer, Record>> selectedData = data.get(country).get(state);
+
+		for (Integer year : selectedData.keySet()) {
+			if (year.compareTo(startYear) >= 0 && year.compareTo(endYear) <= 0) {
+				SortedMap<Integer, Record> yearData = selectedData.get(year);
+
+				for (Integer month : yearData.keySet()) {
+					Double value = yearData.get(month).temperature;
+
+					if(!m_plotMonthlyMinValue.containsKey(month) || value.compareTo(m_plotMonthlyMinValue.get(month)) < 0) {
+						m_plotMonthlyMinValue.put(month, value);
+					}
+					if(!m_plotMonthlyMaxValue.containsKey(month) || value.compareTo(m_plotMonthlyMaxValue.get(month)) > 0) {
+						m_plotMonthlyMaxValue.put(month, value);
+					}
+
+					m_plotData.get(month).put(year, value);
+				}
+			}
+		}
+		//debug("plot data: %s", m_plotData.toString());
+	}
+
+
 	// Below are the mouse/key listeners
     /**
      * Handle key press.  Q always quits.  Otherwise process based on GUI mode.
@@ -237,10 +318,10 @@ public class DataViewerUI extends DataViewer implements DrawListener {
 			Logger.info("Exiting...");
 			System.exit(0);
 		}
-		else if(m_guiMode == GUI_MODE_MAIN_MENU) {
+		else if(guiMode == GUI_MODE_MAIN_MENU) {
 			if(key == 'P') {
 				// plot the data
-				m_guiMode = GUI_MODE_DATA;
+				guiMode = GUI_MODE_DATA;
 				if(m_plotData == null) {
 					// first time going to render data need to generate the plot data
 					needsUpdatePlotData = true;
@@ -252,21 +333,25 @@ public class DataViewerUI extends DataViewer implements DrawListener {
 				Object selectedValue = JOptionPane.showInputDialog(null,
 			             "Choose a Country", "Input",
 			             JOptionPane.INFORMATION_MESSAGE, null,
-			             m_dataCountries.toArray(), m_selectedCountry);
+			             data.keySet().toArray(), selectedCountry);
 				
 				if(selectedValue != null) {
 					Logger.info("User selected: '%s'", selectedValue);
-					if(!selectedValue.equals(m_selectedCountry)) {
-						// change in data
-						m_selectedCountry = (String)selectedValue;
-						try {
-							dl.loadData();
+					if(!selectedValue.equals(selectedCountry)) {
+						// change in data, update selections
+						selectedCountry = (String)selectedValue;
+
+						SortedMap<String, SortedMap<Integer, SortedMap<Integer, Record>>> stateMap = data.get(selectedCountry);
+						selectedState = stateMap.firstKey();
+
+						// clamp start/end year if current selection is out of range
+						if (selectedStartYear < stateMap.get(selectedState).firstKey()) {
+							selectedStartYear = stateMap.get(selectedState).firstKey();
 						}
-						catch(IOException e) {
-							// convert to a runtime exception since
-							// we can't add throws to this method
-							throw new RuntimeException(e);
+						if (selectedStartYear > stateMap.get(selectedState).lastKey()) {
+							selectedEndYear = stateMap.get(selectedState).lastKey();
 						}
+						
 						needsUpdate = true;
 						needsUpdatePlotData = true;
 					}
@@ -278,13 +363,24 @@ public class DataViewerUI extends DataViewer implements DrawListener {
 				Object selectedValue = JOptionPane.showInputDialog(null,
 			             "Choose a State", "Input",
 			             JOptionPane.INFORMATION_MESSAGE, null,
-			             m_dataStates.toArray(), m_selectedState);
+			             data.get(selectedCountry).keySet().toArray(), selectedState);
 				
 				if(selectedValue != null) {
 					Logger.info("User selected: '%s'", selectedValue);
-					if(!selectedValue.equals(m_selectedState)) {
+					if(!selectedValue.equals(selectedState)) {
 						// change in data
-						m_selectedState = (String)selectedValue;
+						selectedState = (String)selectedValue;
+
+						SortedMap<String, SortedMap<Integer, SortedMap<Integer, Record>>> stateMap = data.get(selectedCountry);
+
+						// clamp start/end year if current selection is out of range
+						if (selectedStartYear < stateMap.get(selectedState).firstKey()) {
+							selectedStartYear = stateMap.get(selectedState).firstKey();
+						}
+						if (selectedStartYear > stateMap.get(selectedState).lastKey()) {
+							selectedEndYear = stateMap.get(selectedState).lastKey();
+						}
+
 						needsUpdate = true;
 						needsUpdatePlotData = true;
 					}
@@ -295,17 +391,17 @@ public class DataViewerUI extends DataViewer implements DrawListener {
 				Object selectedValue = JOptionPane.showInputDialog(null,
 			             "Choose the start year", "Input",
 			             JOptionPane.INFORMATION_MESSAGE, null,
-			             m_dataYears.toArray(), m_selectedStartYear);
+			             data.get(selectedCountry).get(selectedState).keySet().toArray(), selectedStartYear);
 				
 				if(selectedValue != null) {
 					Logger.info("User seleted: '%s'", selectedValue);
 					Integer year = (Integer)selectedValue;
-					if(year.compareTo(m_selectedEndYear) > 0) {
-						Logger.error("new start year (%d) must not be after end year (%d)", year, m_selectedEndYear);
+					if(year.compareTo(selectedEndYear) > 0) {
+						Logger.error("new start year (%d) must not be after end year (%d)", year, selectedEndYear);
 					}
 					else {
-						if(!m_selectedStartYear.equals(year)) {
-							m_selectedStartYear = year;
+						if(!selectedStartYear.equals(year)) {
+							selectedStartYear = year;
 							needsUpdate = true;
 							needsUpdatePlotData = true;
 						}
@@ -317,17 +413,17 @@ public class DataViewerUI extends DataViewer implements DrawListener {
 				Object selectedValue = JOptionPane.showInputDialog(null,
 			             "Choose the end year", "Input",
 			             JOptionPane.INFORMATION_MESSAGE, null,
-			             m_dataYears.toArray(), m_selectedEndYear);
+			             data.get(selectedCountry).get(selectedState).keySet().toArray(), selectedEndYear);
 				
 				if(selectedValue != null) {
 					Logger.info("User seleted: '%s'", selectedValue);
 					Integer year = (Integer)selectedValue;
-					if(year.compareTo(m_selectedStartYear) < 0) {
-						Logger.error("new end year (%d) must be not be before start year (%d)", year, m_selectedStartYear);
+					if(year.compareTo(selectedStartYear) < 0) {
+						Logger.error("new end year (%d) must be not be before start year (%d)", year, selectedStartYear);
 					}
 					else {
-						if(!m_selectedEndYear.equals(year)) {
-							m_selectedEndYear = year;
+						if(!selectedEndYear.equals(year)) {
+							selectedEndYear = year;
 							needsUpdate = true;
 							needsUpdatePlotData = true;
 						}
@@ -339,31 +435,31 @@ public class DataViewerUI extends DataViewer implements DrawListener {
 				Object selectedValue = JOptionPane.showInputDialog(null,
 						"Choose the visualization mode", "Input",
 						JOptionPane.INFORMATION_MESSAGE, null,
-						VISUALIZATION_MODES, m_selectedVisualization);
+						VISUALIZATION_MODES, selectedVisualization);
 
 				if(selectedValue != null) {
 					Logger.info("User seleted: '%s'", selectedValue);
 					String visualization = (String)selectedValue;
-					if(!m_selectedVisualization.equals(visualization)) {
-						m_selectedVisualization = visualization;
+					if(!selectedVisualization.equals(visualization)) {
+						selectedVisualization = visualization;
 						needsUpdate = true;
 					}
 				}
 			}
 
 		}
-		else if (m_guiMode == GUI_MODE_DATA) {
+		else if (guiMode == GUI_MODE_DATA) {
 			if(key == 'M') {
-				m_guiMode = GUI_MODE_MAIN_MENU;
+				guiMode = GUI_MODE_MAIN_MENU;
 				needsUpdate = true;
 			}
 		}
 		else {
-			throw new IllegalStateException(String.format("unexpected mode: %d", m_guiMode));
+			throw new IllegalStateException(String.format("unexpected mode: %d", guiMode));
 		}
 		if(needsUpdatePlotData) {
 			// something changed with the data that needs to be plotted
-			dl.updatePlotData();
+			updatePlotData(selectedCountry, selectedState, selectedStartYear, selectedEndYear);
 		}
 		if(needsUpdate) {
 			update();

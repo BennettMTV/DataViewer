@@ -1,8 +1,8 @@
 package dataviewer3final;
 
 import java.io.IOException;
+import java.util.SortedMap;
 
-public abstract class DataLoader extends DataViewer {    
-	public abstract void loadData() throws IOException;
-    public abstract void updatePlotData();
+public interface DataLoader {    
+	public SortedMap<String, SortedMap<String, SortedMap<Integer, SortedMap<Integer, Record>>>> loadData() throws IOException;
 }
