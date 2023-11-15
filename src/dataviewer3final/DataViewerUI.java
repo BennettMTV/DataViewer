@@ -10,9 +10,10 @@ import javax.swing.JOptionPane;
 import edu.du.dudraw.Draw;
 import edu.du.dudraw.DrawListener;
 
-public class DataViewerUI implements DrawListener {
+public class DataViewerUI implements DrawListener, DisplayMode {
 	private DataLoader loader;
 	private Draw m_window;
+	private State theState =  new MenuState();
 
 	SortedMap<String, SortedMap<String, SortedMap<Integer, SortedMap<Integer, Record>>>> data;
 
@@ -81,21 +82,23 @@ public class DataViewerUI implements DrawListener {
 	}
 
 	@Override
-	public void update() {    	
-		if(guiMode == GUI_MODE_MAIN_MENU) {
-			drawMainMenu();
-		}
-		else if(guiMode == GUI_MODE_DATA) {
-			drawData();
-		}
-		else {
-			throw new IllegalStateException(String.format("Unexpected drawMode=%d", guiMode));
-		}
+	public void update() {    
+		theState.display(this);
+//		if(guiMode == GUI_MODE_MAIN_MENU) {
+//			
+//			drawMainMenu();
+//		}
+//		else if(guiMode == GUI_MODE_DATA) {
+//			drawData();
+//		}
+//		else {
+//			throw new IllegalStateException(String.format("Unexpected drawMode=%d", guiMode));
+//		}
 		// for double-buffering
 		m_window.show();
 	}
 
-	private void drawMainMenu() {
+	public void drawMainMenu() {
 		m_window.clear(Color.WHITE);
 
 		String[] menuItems = {
@@ -129,7 +132,7 @@ public class DataViewerUI implements DrawListener {
 		}
 	}
 
-	private void drawData() {
+	public void drawData() {
 		// Give a buffer around the plot window
 		m_window.setXscale(-DATA_WINDOW_BORDER, WINDOW_WIDTH+DATA_WINDOW_BORDER);
 		m_window.setYscale(-DATA_WINDOW_BORDER, WINDOW_HEIGHT+DATA_WINDOW_BORDER);
@@ -318,10 +321,10 @@ public class DataViewerUI implements DrawListener {
 			Logger.info("Exiting...");
 			System.exit(0);
 		}
-		else if(guiMode == GUI_MODE_MAIN_MENU) {
+		else if(theState.isMenu()) {
 			if(key == 'P') {
 				// plot the data
-				guiMode = GUI_MODE_DATA;
+				theState =  theState.transiton();
 				if(m_plotData == null) {
 					// first time going to render data need to generate the plot data
 					needsUpdatePlotData = true;
@@ -447,12 +450,13 @@ public class DataViewerUI implements DrawListener {
 				}
 			}
 
-		}
-		else if (guiMode == GUI_MODE_DATA) {
+		} else if(!theState.isMenu()) { 
 			if(key == 'M') {
-				guiMode = GUI_MODE_MAIN_MENU;
+		
+				theState = theState.transiton();
 				needsUpdate = true;
 			}
+			
 		}
 		else {
 			throw new IllegalStateException(String.format("unexpected mode: %d", guiMode));
