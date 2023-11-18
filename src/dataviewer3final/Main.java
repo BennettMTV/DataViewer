@@ -8,4 +8,8 @@ public class Main {
     	//String data = "data/sample.csv";
         new DataViewerUI(data);
     }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> ee7612547ff475c1b4e597bb9cedaa5692687823

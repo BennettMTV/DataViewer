@@ -1,24 +1,26 @@
 package dataviewer2;
 
 import java.awt.Color;
-import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.util.SortedMap;
-import java.util.TreeMap;
 
 import javax.swing.JOptionPane;
 
 import edu.du.dudraw.Draw;
 import edu.du.dudraw.DrawListener;
 
-public class DataViewerUI extends DataViewer implements DrawListener{
+public class DataViewerUI extends DataViewer implements DrawListener {
 	private DataLoader dl;
+	private Draw m_window;
+
+	private static int m_guiMode = GUI_MODE_MAIN_MENU; // Menu by default
 	
 	/**
 	 * Constructor sets up the window and loads the specified data file.
 	 */
-	public DataViewerUI(String dataFile) throws FileNotFoundException {
+	public DataViewerUI(String dataFile) throws IOException {
 		// save the data file name for later use if user switches country
-		dl= new DataLoader(dataFile);
+		dl= new DataLoaderCSV(dataFile);
 
 		// Setup the DuDraw board
 		m_window = new Draw(WINDOW_TITLE);
@@ -232,7 +234,7 @@ public class DataViewerUI extends DataViewer implements DrawListener{
 		Logger.trace("key pressed '%c'", (char)key);
 		// regardless of draw mode, 'Q' or 'q' means quit:
 		if(key == 'Q') {
-			System.out.println("Bye");
+			Logger.info("Exiting...");
 			System.exit(0);
 		}
 		else if(m_guiMode == GUI_MODE_MAIN_MENU) {
@@ -260,7 +262,7 @@ public class DataViewerUI extends DataViewer implements DrawListener{
 						try {
 							dl.loadData();
 						}
-						catch(FileNotFoundException e) {
+						catch(IOException e) {
 							// convert to a runtime exception since
 							// we can't add throws to this method
 							throw new RuntimeException(e);

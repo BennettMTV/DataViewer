@@ -5,14 +5,7 @@ import java.util.SortedMap;
 import java.util.SortedSet;
 import java.util.TreeMap;
 
-import edu.du.dudraw.Draw;
-
 public abstract class DataViewer {
-	// Constructor
-	public DataViewer() {
-		
-	}
-	
 	// Private constants (alphabetical)
 	protected final static double 	DATA_WINDOW_BORDER = 50.0;
 	protected final static String 	DEFAULT_COUNTRY = "United States";
@@ -49,14 +42,10 @@ public abstract class DataViewer {
 	// Instance variables (alphabetized)
 
 	// data storage
-	public String m_dataFile;
 	protected static List<List<Object>> m_dataRaw;
 	protected static SortedSet<String> m_dataStates;
 	protected static SortedSet<String> m_dataCountries;
 	protected static SortedSet<Integer> m_dataYears;
-
-	// GUI-related settings    
-	protected static int m_guiMode = GUI_MODE_MAIN_MENU; // Menu by default
 
 	// user selections
 	protected static String m_selectedCountry = DEFAULT_COUNTRY;
@@ -69,8 +58,4 @@ public abstract class DataViewer {
 	protected static TreeMap<Integer, SortedMap<Integer,Double>> m_plotData = null;
 	protected static TreeMap<Integer,Double> m_plotMonthlyMaxValue = null;
 	protected static TreeMap<Integer,Double> m_plotMonthlyMinValue = null;
-
-	// Window-variables
-	protected Draw m_window;
-
 }
