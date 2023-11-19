@@ -2,6 +2,7 @@ package dataviewer3final;
 
 import java.awt.Color;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
@@ -14,11 +15,15 @@ public class DataViewerUI implements DrawListener, DisplayMode {
 	private DataLoader loader;
 	private Draw m_window;
 	private State theState =  new MenuState();
-
+	
+	
+	// new user created variables
 	SortedMap<String, SortedMap<String, SortedMap<Integer, SortedMap<Integer, Record>>>> data;
+	ArrayList<KeyCommand> commandList;
 
-    // GUI Settings
-    protected final static double 	DATA_WINDOW_BORDER = 50.0;
+
+	// GUI Settings
+	protected final static double 	DATA_WINDOW_BORDER = 50.0;
 	protected final static String 	DEFAULT_COUNTRY = "United States";
 	protected final static boolean	DO_DEBUG = true;
 	protected final static boolean	DO_TRACE = false;
@@ -37,14 +42,14 @@ public class DataViewerUI implements DrawListener, DisplayMode {
 	protected final static int 		VISUALIZATION_RAW_IDX = 0;
 	protected final static int		VISUALIZATION_EXTREMA_IDX = 1;
 
-    // user selections
+	// user selections
 	protected static String selectedCountry = DEFAULT_COUNTRY;
 	protected static String selectedState;
 	protected static Integer selectedStartYear;
 	protected static Integer selectedEndYear;
 	protected static String selectedVisualization = VISUALIZATION_MODES[0];
 	private static int guiMode = GUI_MODE_MAIN_MENU; // Menu by default
-    protected static int 		WINDOW_HEIGHT = 720;
+	protected static int 		WINDOW_HEIGHT = 720;
 	protected static String 	WINDOW_TITLE = "DataViewer Application";
 	protected static int 		WINDOW_WIDTH = 1320; // should be a multiple of 12
 
@@ -52,11 +57,12 @@ public class DataViewerUI implements DrawListener, DisplayMode {
 	protected static TreeMap<Integer, SortedMap<Integer,Double>> m_plotData = null;
 	protected static TreeMap<Integer,Double> m_plotMonthlyMaxValue = null;
 	protected static TreeMap<Integer,Double> m_plotMonthlyMinValue = null;
-	
+
 	/**
 	 * Constructor sets up the window and loads the specified data file.
 	 */
 	public DataViewerUI(String dataFile) throws IOException {
+		commandList = new ArrayList<KeyCommand>();
 		loader = new DataLoaderCSV(dataFile);
 
 		// Setup the DuDraw board
@@ -75,29 +81,39 @@ public class DataViewerUI implements DrawListener, DisplayMode {
 		selectedStartYear = data.get(selectedCountry).get(selectedState).firstKey();
 		selectedEndYear = data.get(selectedCountry).get(selectedState).lastKey();
 
-		updatePlotData(selectedCountry, selectedState, selectedStartYear, selectedEndYear);
-
+		KeyCommand updatePlotData = new CommandUpdatePlot(this);
+		commandList.add(updatePlotData);
+		
 		// draw the screen for the first time -- this will be the main menu
-		update();
+		KeyCommand updateWindow = new CommandUpdateWindow(this);
+		commandList.add(updateWindow);
+		
+		for (KeyCommand command : commandList) {
+			command.execute();
+		}
+		commandList.clear();
 	}
-
-	@Override
-	public void update() {    
-		theState.display(this);
-//		if(guiMode == GUI_MODE_MAIN_MENU) {
-//			
-//			drawMainMenu();
-//		}
-//		else if(guiMode == GUI_MODE_DATA) {
-//			drawData();
-//		}
-//		else {
-//			throw new IllegalStateException(String.format("Unexpected drawMode=%d", guiMode));
-//		}
-		// for double-buffering
-		m_window.show();
+	
+	// new getter methods for command pattern
+	public State getState() {
+		return theState;
 	}
-
+	public Draw getWindow() {
+		return m_window;
+	}
+	public String getSelectedCountry() {
+		return selectedCountry;
+	}
+	public String getSelectedState() {
+		return selectedState;
+	}
+	public Integer getStartYear() {
+		return selectedStartYear;
+	}
+	public Integer getEndYear() {
+		return selectedEndYear;
+	}
+	
 	public void drawMainMenu() {
 		m_window.clear(Color.WHITE);
 
@@ -231,45 +247,45 @@ public class DataViewerUI implements DrawListener, DisplayMode {
 				selectedState, selectedCountry, selectedStartYear, selectedEndYear);
 		m_window.text(WINDOW_WIDTH/2.0, WINDOW_HEIGHT+DATA_WINDOW_BORDER/2.0, title);
 	}
-	
+
 	/**
-     * Return a Color object based on the value passed in.
-     * @param value - controls the color
-     * @param doGrayscale - if true, return a grayscale value (r, g, b are all equal);
-     * 	otherwise return a range of red to green.
-     * @return null is value is null, otherwise return a Color object
-     */
-    private Color getDataColor(Double value, boolean doGrayscale) {
-    	if(null == value) {
-    		return null;
-    	}
-    	double pct = (value - TEMPERATURE_MIN_C) / TEMPERATURE_RANGE;
-    	Logger.trace("converted %f raw value to %f %%", value, pct);
-    
-    	if (pct > 1.0) {
-            pct = 1.0;
-        }
-        else if (pct < 0.0) {
-            pct = 0.0;
-        }
-        int r, g, b;
-        // Replace the color scheme with my own
-        if (!doGrayscale) {
-        	r = (int)(255.0 * pct);
-        	g = 0;
-        	b = (int)(255.0 * (1.0-pct));
-        	
-        } else {
-        	// Grayscale for the middle extema
-        	r = g = b = (int)(255.0 * pct);
-        }
-        
-        Logger.trace("converting %f to [%d, %d, %d]", value, r, g, b);
+	 * Return a Color object based on the value passed in.
+	 * @param value - controls the color
+	 * @param doGrayscale - if true, return a grayscale value (r, g, b are all equal);
+	 * 	otherwise return a range of red to green.
+	 * @return null is value is null, otherwise return a Color object
+	 */
+	private Color getDataColor(Double value, boolean doGrayscale) {
+		if(null == value) {
+			return null;
+		}
+		double pct = (value - TEMPERATURE_MIN_C) / TEMPERATURE_RANGE;
+		Logger.trace("converted %f raw value to %f %%", value, pct);
+
+		if (pct > 1.0) {
+			pct = 1.0;
+		}
+		else if (pct < 0.0) {
+			pct = 0.0;
+		}
+		int r, g, b;
+		// Replace the color scheme with my own
+		if (!doGrayscale) {
+			r = (int)(255.0 * pct);
+			g = 0;
+			b = (int)(255.0 * (1.0-pct));
+
+		} else {
+			// Grayscale for the middle extema
+			r = g = b = (int)(255.0 * pct);
+		}
+
+		Logger.trace("converting %f to [%d, %d, %d]", value, r, g, b);
 
 		return new Color(r, g, b);
 	}
 
-	private void updatePlotData(String country, String state, int startYear, int endYear) {
+	public void updatePlotData(String country, String state, int startYear, int endYear) {
 		//debug("raw data: %s", m_rawData.toString());
 		// plot data is a map where the key is the Month, and the value is a sorted map where the key
 		// is the year. 
@@ -309,9 +325,9 @@ public class DataViewerUI implements DrawListener, DisplayMode {
 
 
 	// Below are the mouse/key listeners
-    /**
-     * Handle key press.  Q always quits.  Otherwise process based on GUI mode.
-     */
+	/**
+	 * Handle key press.  Q always quits.  Otherwise process based on GUI mode.
+	 */
 	@Override public void keyPressed(int key) {
 		boolean needsUpdate = false;
 		boolean needsUpdatePlotData = false;
@@ -334,10 +350,10 @@ public class DataViewerUI implements DrawListener, DisplayMode {
 			else if(key == 'C') {
 				// set the Country
 				Object selectedValue = JOptionPane.showInputDialog(null,
-			             "Choose a Country", "Input",
-			             JOptionPane.INFORMATION_MESSAGE, null,
-			             data.keySet().toArray(), selectedCountry);
-				
+						"Choose a Country", "Input",
+						JOptionPane.INFORMATION_MESSAGE, null,
+						data.keySet().toArray(), selectedCountry);
+
 				if(selectedValue != null) {
 					Logger.info("User selected: '%s'", selectedValue);
 					if(!selectedValue.equals(selectedCountry)) {
@@ -354,7 +370,7 @@ public class DataViewerUI implements DrawListener, DisplayMode {
 						if (selectedStartYear > stateMap.get(selectedState).lastKey()) {
 							selectedEndYear = stateMap.get(selectedState).lastKey();
 						}
-						
+
 						needsUpdate = true;
 						needsUpdatePlotData = true;
 					}
@@ -364,10 +380,10 @@ public class DataViewerUI implements DrawListener, DisplayMode {
 			else if(key == 'T') {
 				// set the state
 				Object selectedValue = JOptionPane.showInputDialog(null,
-			             "Choose a State", "Input",
-			             JOptionPane.INFORMATION_MESSAGE, null,
-			             data.get(selectedCountry).keySet().toArray(), selectedState);
-				
+						"Choose a State", "Input",
+						JOptionPane.INFORMATION_MESSAGE, null,
+						data.get(selectedCountry).keySet().toArray(), selectedState);
+
 				if(selectedValue != null) {
 					Logger.info("User selected: '%s'", selectedValue);
 					if(!selectedValue.equals(selectedState)) {
@@ -392,10 +408,10 @@ public class DataViewerUI implements DrawListener, DisplayMode {
 			else if(key == 'S') {
 				// set the start year
 				Object selectedValue = JOptionPane.showInputDialog(null,
-			             "Choose the start year", "Input",
-			             JOptionPane.INFORMATION_MESSAGE, null,
-			             data.get(selectedCountry).get(selectedState).keySet().toArray(), selectedStartYear);
-				
+						"Choose the start year", "Input",
+						JOptionPane.INFORMATION_MESSAGE, null,
+						data.get(selectedCountry).get(selectedState).keySet().toArray(), selectedStartYear);
+
 				if(selectedValue != null) {
 					Logger.info("User seleted: '%s'", selectedValue);
 					Integer year = (Integer)selectedValue;
@@ -414,10 +430,10 @@ public class DataViewerUI implements DrawListener, DisplayMode {
 			else if(key == 'E') {
 				// set the end year
 				Object selectedValue = JOptionPane.showInputDialog(null,
-			             "Choose the end year", "Input",
-			             JOptionPane.INFORMATION_MESSAGE, null,
-			             data.get(selectedCountry).get(selectedState).keySet().toArray(), selectedEndYear);
-				
+						"Choose the end year", "Input",
+						JOptionPane.INFORMATION_MESSAGE, null,
+						data.get(selectedCountry).get(selectedState).keySet().toArray(), selectedEndYear);
+
 				if(selectedValue != null) {
 					Logger.info("User seleted: '%s'", selectedValue);
 					Integer year = (Integer)selectedValue;
@@ -452,22 +468,31 @@ public class DataViewerUI implements DrawListener, DisplayMode {
 
 		} else if(!theState.isMenu()) { 
 			if(key == 'M') {
-		
+
 				theState = theState.transiton();
 				needsUpdate = true;
 			}
-			
+
 		}
 		else {
 			throw new IllegalStateException(String.format("unexpected mode: %d", guiMode));
 		}
 		if(needsUpdatePlotData) {
 			// something changed with the data that needs to be plotted
-			updatePlotData(selectedCountry, selectedState, selectedStartYear, selectedEndYear);
+			KeyCommand updatePlotData = new CommandUpdatePlot(this);
+			commandList.add(updatePlotData);
+			//updatePlotData(selectedCountry, selectedState, selectedStartYear, selectedEndYear);
 		}
 		if(needsUpdate) {
-			update();
+			KeyCommand updateWindow = new CommandUpdateWindow(this);
+			commandList.add(updateWindow);
+			//update();
 		}
+		
+		for (KeyCommand command : commandList) {
+			command.execute();
+		}
+		commandList.clear();
 	}
 
 	@Override
@@ -478,7 +503,7 @@ public class DataViewerUI implements DrawListener, DisplayMode {
 
 	@Override
 	public void mouseClicked(double x, double y) {}
-	
+
 	@Override
 	public void mouseDragged(double x, double y) {}
 
@@ -486,5 +511,11 @@ public class DataViewerUI implements DrawListener, DisplayMode {
 	public void mousePressed(double x, double y) {}
 
 	@Override
-	public void mouseReleased(double x, double y) {}    
+	public void mouseReleased(double x, double y) {}
+
+
+	@Override
+	public void update() {
+		// does nothing
+	}    
 }
