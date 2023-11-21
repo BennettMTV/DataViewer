@@ -75,7 +75,10 @@ public class DataViewerUI extends DataObserver implements DrawListener, DisplayM
 
 		// Load data
 		data = loader.fetchData();
+		this.initialize();
+	}
 
+	private void initialize() {
 		// Set initial selections to first in data
 		selectedState = data.get(selectedCountry).firstKey();
 		selectedStartYear = data.get(selectedCountry).get(selectedState).firstKey();
@@ -325,6 +328,8 @@ public class DataViewerUI extends DataObserver implements DrawListener, DisplayM
 
 	public void updateObserver() {
 		this.data = loader.fetchData();
+		// Reset window to reflect new data
+		this.initialize();
 	}
 
 	// Below are the mouse/key listeners
