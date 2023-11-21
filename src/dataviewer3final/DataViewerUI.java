@@ -11,8 +11,7 @@ import javax.swing.JOptionPane;
 import edu.du.dudraw.Draw;
 import edu.du.dudraw.DrawListener;
 
-public class DataViewerUI implements DrawListener, DisplayMode {
-	private DataLoader loader;
+public class DataViewerUI extends DataObserver implements DrawListener, DisplayMode {
 	private Draw m_window;
 	private State theState =  new MenuState();
 	
@@ -60,9 +59,11 @@ public class DataViewerUI implements DrawListener, DisplayMode {
 	/**
 	 * Constructor sets up the window and loads the specified data file.
 	 */
-	public DataViewerUI(String dataFile) throws IOException {
+	public DataViewerUI(DataLoader loader) throws IOException {
+		// Add UI as observer
+		super(loader);
+
 		commandList = new ArrayList<KeyCommand>();
-		loader = new DataLoaderCSV(dataFile);
 
 		// Setup the DuDraw board
 		m_window = new Draw(WINDOW_TITLE);
@@ -73,7 +74,7 @@ public class DataViewerUI implements DrawListener, DisplayMode {
 		m_window.addListener(this);
 
 		// Load data
-		data = loader.loadData();
+		data = loader.fetchData();
 
 		// Set initial selections to first in data
 		selectedState = data.get(selectedCountry).firstKey();
@@ -322,6 +323,9 @@ public class DataViewerUI implements DrawListener, DisplayMode {
 		//debug("plot data: %s", m_plotData.toString());
 	}
 
+	public void updateObserver() {
+		this.data = loader.fetchData();
+	}
 
 	// Below are the mouse/key listeners
 	/**

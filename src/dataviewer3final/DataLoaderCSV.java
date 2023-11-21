@@ -8,7 +8,7 @@ import java.util.ArrayList;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
-public class DataLoaderCSV implements DataLoader {
+public class DataLoaderCSV extends DataLoader {
     private final static int 		FILE_COUNTRY_IDX = 4;
 	private final static int 		FILE_DATE_IDX = 0;
 	private final static int 		FILE_NUM_COLUMNS = 5;
@@ -17,8 +17,10 @@ public class DataLoaderCSV implements DataLoader {
 	private final static int 		FILE_UNCERTAINTY_IDX = 2;
 
 	private String filePath;
+	private SortedMap<String, SortedMap<String, SortedMap<Integer, SortedMap<Integer, Record>>>> data;
 
 	public DataLoaderCSV(String file) {
+		super();
 		this.filePath = file;
 	}
 
@@ -125,7 +127,7 @@ public class DataLoaderCSV implements DataLoader {
 		return ret;
 	}
 
-	public SortedMap<String, SortedMap<String, SortedMap<Integer, SortedMap<Integer, Record>>>> loadData() throws FileNotFoundException {
+	public void loadData() throws FileNotFoundException {
 		SortedMap<String, SortedMap<String, SortedMap<Integer, SortedMap<Integer, Record>>>> countryMap =
 			new TreeMap<String, SortedMap<String, SortedMap<Integer, SortedMap<Integer, Record>>>>();
 
@@ -160,6 +162,17 @@ public class DataLoaderCSV implements DataLoader {
 		}
 
 		Logger.info("loaded data for %d countries", countryMap.size());
-		return countryMap;
+		this.data = countryMap;
+
+		// Tell observers that there's new data
+		this.notifyObservers();
+	}
+
+	public SortedMap<String, SortedMap<String, SortedMap<Integer, SortedMap<Integer, Record>>>> fetchData() {
+		if (this.data == null) {
+			Logger.error("tried to fetch unloaded data");
+		}
+
+		return this.data;
 	}
 }
